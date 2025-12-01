@@ -44,7 +44,7 @@ bias_array2 = np.random.rand(hl2_total, 1)                         #Biases for h
 
 weights_array3 = random(output_number, hl2_total)          #Weights for output
 bias_array3 = np.random.rand(output_number, 1)                                     #Biases for output
-l=3
+layer = 3
 #Training#
 
 for i in range(data_size):
@@ -67,15 +67,26 @@ for i in range(data_size):
   #BACK-PROPOGATION#
     print(output_val)
     target_vector[y_train[i]]=1
-    Cost = -1*(np.log(output_val[y_train[i], 0])+1e-12)
+    Cost = np.sum((output_val - target_vector)**2)/2
     zL = [0, sum1, sum2, sum3]
     wL = [0, weights_array1, weights_array2, weights_array3]
-    while l>0:
-        for n in range(hl2_total):
-            for n2 in range(output_number):
-                weight=((wL[l])[n2])[n]
-                activation
-
+    bias_array = [0, bias_array1, bias_array2, bias_array3]
+    while layer>0:
+        for node in range(output_number):
+            for node2 in range(hl2_total):
+                weight=((wL[layer])[node,node2])
+                node_val = (zL[layer])[node,0]
+                bias_val = (bias_array[layer])[node,0]
+                node_prev = (zL[layer-1])[node,0]
+                weight_dev = node_prev*sigd(node_val)*2*(output_val[n]-target_vector[n])
+        for node in range(hl2_total):
+            for node2 in range(hl_total):
+                weight=((wL[layer])[node,node2])
+                node_val = (zL[layer])[node,0]
+                bias_val = (bias_array[layer])[node,0]
+                node_prev = (zL[layer-1])[node,0]
+                weight_dev = node_prev*sigd(node_val)*2*(output_val[n]-target_vector[n]) 
+                ]])
         l=l-1
 
     time.sleep(30)
