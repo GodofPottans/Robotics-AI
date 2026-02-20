@@ -16,6 +16,18 @@ assert y_test.shape == (10000,)
 x_train = x_train.astype('float32') / 255
 x_test = x_test.astype('float32') / 255
 
+def binary_cross_entropy(y_true, y_pred):
+    # Clip predictions to avoid log(0) or log(1) issues
+    epsilon = 1e-15
+    y_pred = np.clip(y_pred, epsilon, 1. - epsilon)
+    loss = -(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred)).mean()
+    return loss
+def bced(y_true, y_pred):
+    epsilon = 1e-15
+    y_pred = np.clip(y_pred, epsilon, 1. - epsilon)
+    lossd = (y_true/y_pred)+((1-y_true)/(1-y_pred)) #check for the need for np.dot
+    return lossd
+    # Derivative of binary cross-entropy loss with respect to predictions
 def sig(x):
     #Defining the sigmoid function
     return 1/(1+np.exp(-x))
@@ -26,8 +38,8 @@ def random(x, y):
     return 2*(np.random.rand(x, y))-1
 
 def softm(x):
-    e_x = np.exp(x - np.max(x))  # Subtract max for numerical stability
-    return e_x / np.sum(e_x)
+    e_x = np.exp(x - np.max(x, axis=0, keepdims=True))  # Subtract max for numerical stability
+    return e_x / np.sum(e_x, axis=0, keepdims=True)
 
 input_size = 784
 data_size = 60000
@@ -46,47 +58,40 @@ weights_array3 = random(output_number, hl2_total)          #Weights for output
 bias_array3 = np.random.rand(output_number, 1)                                     #Biases for output
 layer = 3
 #Training#
+gradient = []
+batch_grad = []
+prevbatch = 0
+def batch(batch_size):
+    for i in range (batch_size):
+        #Initialize#
+        target_vector = np.zeros((output_number, 1))
+        target_vector.reshape(-1,1)
+        #FORWARD-PROPOGATION#
 
-for i in range(data_size):
-  #Initialize#
-    target_vector = np.zeros((output_number, 1))
-    target_vector.reshape(-1,1)
-  #FORWARD-PROPOGATION#
+        array_input = x_train[i].reshape(-1,1)              #Input array that the nueral network takes in
 
-    array_input = x_train[i].reshape(-1,1)              #Input array that the nueral network takes in
+        zL1 = (np.dot(weights_array1, array_input))+(bias_array1)
+        hl_val = sig(zL1)  #Values for hidden layer 1
 
-    sum1 = (np.dot(weights_array1, array_input))+(bias_array1)
-    hl_val = sig(sum1)  #Values for hidden layer 1
+        zL2 = (np.dot(weights_array2, hl_val)+(bias_array2))
+        hl2_val = sig(zL2)      #Values for hidden layer 2
 
-    sum2 = (np.dot(weights_array2, hl_val)+(bias_array2))
-    hl2_val = sig(sum2)      #Values for hidden layer 2
+        zL3 = (np.dot(weights_array3, hl2_val))+(bias_array3)
+        output_val = softm(zL3)  #output values
+        #BACK-PROPOGATION#
+        print(output_val)
+        target_vector[y_train[i]]=1
+        Cost = binary_cross_entropy(target_vector, output_val)
+        Cost = [Cost]*output_number
+        Cost = np.array(Cost).reshape(-1,1)
+        al3 = np.dot(bced(target_vector, output_val), weights_array3.T)*sigd(zL3)
+        wl3 = al3*sigd(zL3)*hl2_val.T
+        al2 = np.dot(al3, weights_array2.T)*sigd(zL2)
+        wl2 = al2*sigd(zL1)*hl_val.T
+        al1 = np.dot(al2, weights_array1.T)* sigd(zL1)
+        wl1 = al1*sigd(zL1)*array_input.T
+        
 
-    sum3 = (np.dot(weights_array3, hl2_val))+(bias_array3)
-    output_val = softm(sum3)  #output values
 
-  #BACK-PROPOGATION#
-    print(output_val)
-    target_vector[y_train[i]]=1
-    Cost = np.sum((output_val - target_vector)**2)/2
-    zL = [0, sum1, sum2, sum3]
-    wL = [0, weights_array1, weights_array2, weights_array3]
-    bias_array = [0, bias_array1, bias_array2, bias_array3]
-    while layer>0:
-        for node in range(output_number):
-            for node2 in range(hl2_total):
-                weight=((wL[layer])[node,node2])
-                node_val = (zL[layer])[node,0]
-                bias_val = (bias_array[layer])[node,0]
-                node_prev = (zL[layer-1])[node,0]
-                weight_dev = node_prev*sigd(node_val)*2*(output_val[n]-target_vector[n])
-        for node in range(hl2_total):
-            for node2 in range(hl_total):
-                weight=((wL[layer])[node,node2])
-                node_val = (zL[layer])[node,0]
-                bias_val = (bias_array[layer])[node,0]
-                node_prev = (zL[layer-1])[node,0]
-                weight_dev = node_prev*sigd(node_val)*2*(output_val[n]-target_vector[n]) 
-                ]])
-        l=l-1
-
-    time.sleep(30)
+       
+        
