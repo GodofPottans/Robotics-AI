@@ -16,18 +16,6 @@ assert y_test.shape == (10000,)
 x_train = x_train.astype('float32') / 255
 x_test = x_test.astype('float32') / 255
 
-def binary_cross_entropy(y_true, y_pred):
-    # Clip predictions to avoid log(0) or log(1) issues
-    epsilon = 1e-15
-    y_pred = np.clip(y_pred, epsilon, 1. - epsilon)
-    loss = -(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred)).mean()
-    return loss
-def bced(y_true, y_pred):
-    epsilon = 1e-15
-    y_pred = np.clip(y_pred, epsilon, 1. - epsilon)
-    lossd = (y_true/y_pred)+((1-y_true)/(1-y_pred)) #check for the need for np.dot
-    return lossd
-    # Derivative of binary cross-entropy loss with respect to predictions
 def sig(x):
     #Defining the sigmoid function
     return 1/(1+np.exp(-x))
@@ -40,58 +28,101 @@ def random(x, y):
 def softm(x):
     e_x = np.exp(x - np.max(x, axis=0, keepdims=True))  # Subtract max for numerical stability
     return e_x / np.sum(e_x, axis=0, keepdims=True)
-
+def xavier_init(fan_in, fan_out):
+    limit = np.sqrt(6/(fan_in + fan_out))
+    return np.random.uniform(-limit, limit, (fan_out, fan_in))
 input_size = 784
 data_size = 60000
 
 hl_total = int(input_size*(2/3))       #Total number of nodes in hidden layer 1
 hl2_total = int(hl_total*(2/3))        #Total number of nodes in hidden layer 2
 output_number = 10
+weights_array1 = xavier_init(input_size, hl_total)
+weights_array2 = xavier_init(hl_total, hl2_total)
+weights_array3 = xavier_init(hl2_total, output_number)
 
-weights_array1 = random(hl_total, input_size)                     #The weights for the set of numbers to hidden layer 1
 bias_array1 = np.random.rand(hl_total, 1)                          #Biases for the first hidden layer connections
 
-weights_array2 = random(hl2_total, hl_total)               #Weights for next hidden layer
 bias_array2 = np.random.rand(hl2_total, 1)                         #Biases for hidden layer 2
 
-weights_array3 = random(output_number, hl2_total)          #Weights for output
 bias_array3 = np.random.rand(output_number, 1)                                     #Biases for output
 layer = 3
 #Training#
 gradient = []
 batch_grad = []
 prevbatch = 0
-def batch(batch_size):
-    for i in range (batch_size):
-        #Initialize#
-        target_vector = np.zeros((output_number, 1))
-        target_vector.reshape(-1,1)
-        #FORWARD-PROPOGATION#
+def train(epoch_number, batch_size, dataset_len):
+    for e in range (epoch_number):
+    
+        perm = np.random.permutation(dataset_len)
+        x_train[:] = x_train[perm]
+        y_train[:] = y_train[perm]
 
-        array_input = x_train[i].reshape(-1,1)              #Input array that the nueral network takes in
+        for j in range (dataset_len//batch_size):
+            wl1 = np.zeros_like(weights_array1)
+            wl2 = np.zeros_like(weights_array2)
+            wl3 = np.zeros_like(weights_array3)
 
-        zL1 = (np.dot(weights_array1, array_input))+(bias_array1)
-        hl_val = sig(zL1)  #Values for hidden layer 1
+            bl1 = np.zeros_like(bias_array1)
+            bl2 = np.zeros_like(bias_array2)
+            bl3 = np.zeros_like(bias_array3)
+            for i in range (batch_size):
+                index = j*batch_size+i
+                #Initialize#
+                target_vector = np.zeros((output_number, 1))
+                #FORWARD-PROPOGATION#
 
-        zL2 = (np.dot(weights_array2, hl_val)+(bias_array2))
-        hl2_val = sig(zL2)      #Values for hidden layer 2
+                array_input = x_train[index].reshape(-1,1)              #Input array that the nueral network takes in
 
-        zL3 = (np.dot(weights_array3, hl2_val))+(bias_array3)
-        output_val = softm(zL3)  #output values
-        #BACK-PROPOGATION#
-        print(output_val)
-        target_vector[y_train[i]]=1
-        Cost = binary_cross_entropy(target_vector, output_val)
-        Cost = [Cost]*output_number
-        Cost = np.array(Cost).reshape(-1,1)
-        al3 = np.dot(bced(target_vector, output_val), weights_array3.T)*sigd(zL3)
-        wl3 = al3*sigd(zL3)*hl2_val.T
-        al2 = np.dot(al3, weights_array2.T)*sigd(zL2)
-        wl2 = al2*sigd(zL1)*hl_val.T
-        al1 = np.dot(al2, weights_array1.T)* sigd(zL1)
-        wl1 = al1*sigd(zL1)*array_input.T
-        
+                zL1 = (np.dot(weights_array1, array_input))+(bias_array1)
+                hl_val = sig(zL1)  #Values for hidden layer 1
 
+                zL2 = (np.dot(weights_array2, hl_val)+(bias_array2))
+                hl2_val = sig(zL2)      #Values for hidden layer 2
 
-       
-        
+                zL3 = (np.dot(weights_array3, hl2_val))+(bias_array3)
+                output_val = softm(zL3)  #output values
+                #BACK-PROPOGATION#
+                target_vector[y_train[index]]=1
+                delta3 = output_val-target_vector 
+                wl3 += np.dot(delta3,hl2_val.T)
+                bl3 += delta3
+                delta2 = np.dot(delta3, weights_array3.T)*sigd(zL2)
+                wl2 += np.dot(delta2,hl_val.T)
+                bl2 += delta2
+                delta1 = np.dot(delta2, weights_array2.T)* sigd(zL1)
+                wl1 += np.dot(delta1,array_input.T)
+                bl1 += delta1
+
+            wl3 = wl3/batch_size
+            bl3 = bl3/batch_size
+            wl2 = wl2/batch_size
+            bl2 = bl2/batch_size
+            wl1 = wl1/batch_size
+            bl1 = bl1/batch_size
+            learning_rate = 0.01
+
+            weights_array3 -= learning_rate * wl3
+            bias_array3 -= learning_rate * bl3
+
+            weights_array2 -= learning_rate * wl2
+            bias_array2 -= learning_rate * bl2
+
+            weights_array1 -= learning_rate * wl1
+            bias_array1 -= learning_rate * bl1
+train(50, 32, 60000)
+print("Done")
+index2 = input("Select random index: ")
+print(y_test[index2])
+
+array_input = x_train[index2].reshape(-1,1)              #Input array that the nueral network takes in
+
+zL1 = (np.dot(weights_array1, array_input))+(bias_array1)
+hl_val = sig(zL1)  #Values for hidden layer 1
+
+zL2 = (np.dot(weights_array2, hl_val)+(bias_array2))
+hl2_val = sig(zL2)      #Values for hidden layer 2
+
+zL3 = (np.dot(weights_array3, hl2_val))+(bias_array3)
+output_val = softm(zL3)  #output values
+print(max(output_val))
